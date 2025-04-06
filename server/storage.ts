@@ -383,16 +383,24 @@ export class MemStorage implements IStorage {
   
   async createRide(ride: InsertRide): Promise<Ride> {
     const id = this.currentRideId++;
+    
+    // Calculate fare if not provided
+    const calculatedFare = ride.fare || (10 + Math.random() * 15); // Random fare between $10-$25
+    
     const newRide: Ride = {
       ...ride,
       id,
       driverId: undefined,
       status: "requested",
-      fare: 10 + Math.random() * 15, // Random fare between $10-$25
+      fare: calculatedFare,
       distance: 2 + Math.random() * 8, // Random distance between 2-10 miles
       duration: 5 + Math.floor(Math.random() * 25), // Random duration between 5-30 minutes
       rating: undefined,
       pointsEarned: 0,
+      vehicleType: ride.vehicleType || "standard",
+      paymentMethod: ride.paymentMethod || "cash",
+      splitFare: ride.splitFare || false,
+      splitWith: ride.splitWith || [],
       createdAt: new Date(),
       completedAt: undefined
     };
@@ -503,6 +511,12 @@ export class MemStorage implements IStorage {
     // Calculate estimated time remaining
     const minutesRemaining = Math.max(1, Math.floor(Math.random() * 15));
     
+    // Generate mock current location (would be real GPS in production)
+    const currentLocation = {
+      latitude: 40.7128 + (Math.random() - 0.5) * 0.01,
+      longitude: -74.0060 + (Math.random() - 0.5) * 0.01
+    };
+    
     return {
       id: ride.id,
       driverId: ride.driverId || 0,
@@ -511,7 +525,12 @@ export class MemStorage implements IStorage {
       destination: ride.destination,
       fare: ride.fare,
       estimatedTimeRemaining: `${minutesRemaining} min`,
-      potentialPoints: 20 + Math.floor(Math.random() * 10) // Estimate potential points
+      potentialPoints: 20 + Math.floor(Math.random() * 10), // Estimate potential points
+      vehicleType: ride.vehicleType,
+      paymentMethod: ride.paymentMethod,
+      currentLocation: currentLocation,
+      splitFare: ride.splitFare,
+      splitWith: ride.splitWith
     };
   }
   
@@ -522,7 +541,9 @@ export class MemStorage implements IStorage {
     return {
       id: ride.id,
       fare: ride.fare,
-      pointsEarned: ride.pointsEarned
+      pointsEarned: ride.pointsEarned,
+      vehicleType: ride.vehicleType,
+      paymentMethod: ride.paymentMethod
     };
   }
   

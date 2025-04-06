@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Phone, MessageSquare, Check } from "lucide-react";
-import MockMap from "@/lib/mockMap";
+import { Phone, MessageSquare, Check, CreditCard, Banknote, Smartphone, Users } from "lucide-react";
+import RealTimeMap from "@/components/map/RealTimeMap";
 import RatingStars from "@/components/ui/rating-stars";
 import { ActiveRide, Driver } from "@shared/schema";
 
@@ -33,7 +33,21 @@ const RideInProgress: React.FC<RideInProgressProps> = ({ rideId }) => {
     <div className="h-full flex flex-col">
       <div className="flex-1 relative">
         {/* Map View */}
-        <MockMap className="absolute inset-0" height="h-full" />
+        <RealTimeMap 
+          pickup={activeRide.pickupLocation ? {
+            latitude: 40.7128 + (Math.random() - 0.5) * 0.01,
+            longitude: -74.0060 + (Math.random() - 0.5) * 0.01,
+            name: activeRide.pickupLocation
+          } : undefined}
+          destination={activeRide.destination ? {
+            latitude: 40.7128 + (Math.random() - 0.5) * 0.02,
+            longitude: -74.0060 + (Math.random() - 0.5) * 0.02,
+            name: activeRide.destination
+          } : undefined}
+          driverLocation={activeRide.currentLocation}
+          showLabels={true}
+          height="h-full"
+        />
         
         {/* Floating Driver Card */}
         <div className="absolute top-4 left-4 right-4 bg-white rounded-xl shadow-lg p-4">

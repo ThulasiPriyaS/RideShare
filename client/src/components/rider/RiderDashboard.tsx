@@ -1,154 +1,203 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { User, Achievement, LeaderboardUser } from "@shared/schema";
-import { MapPin, Star, Check } from "lucide-react";
-import MockMap from "@/lib/mockMap";
-import AchievementCard from "@/components/achievements/AchievementCard";
-import LeaderboardCard from "@/components/leaderboard/LeaderboardCard";
-import { apiRequest } from "@/lib/queryClient";
+import { ChevronDown, ChevronUp, Compass } from "lucide-react";
+import LocationSearch from "./LocationSearch";
+import VehicleSelection from "./VehicleSelection";
+import PaymentSelection from "./PaymentSelection";
+import RealTimeMap from "../map/RealTimeMap";
+import { Location, VehicleType, PaymentMethod } from "@shared/schema";
+import { Button } from "@/components/ui/button";
 
 interface RiderDashboardProps {
   onRequestRide: () => void;
 }
 
 const RiderDashboard: React.FC<RiderDashboardProps> = ({ onRequestRide }) => {
-  const [destination, setDestination] = useState("");
-  
-  const { data: user } = useQuery<User>({ 
-    queryKey: ['/api/user/current']
-  });
-  
-  const { data: achievements } = useQuery<Achievement[]>({ 
-    queryKey: ['/api/achievements/recent']
-  });
-  
-  const { data: leaderboard } = useQuery<LeaderboardUser[]>({ 
-    queryKey: ['/api/leaderboard']
-  });
+  const [pickup, setPickup] = useState<Location | null>(null);
+  const [destination, setDestination] = useState<Location | null>(null);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(true);
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
+  const [showVehicleSelection, setShowVehicleSelection] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
+  const [showPaymentSelection, setShowPaymentSelection] = useState(false);
+  const [isSplitFareEnabled, setIsSplitFareEnabled] = useState(false);
 
-  const handleFindDrivers = async () => {
-    if (!destination.trim()) return;
+  // Random driver location for demonstration
+  const driverLocation = {
+    latitude: 40.7128 + (Math.random() - 0.5) * 0.01,
+    longitude: -74.0060 + (Math.random() - 0.5) * 0.01
+  };
+
+  const handlePickupSelect = (location: Location) => {
+    setPickup(location);
     
-    try {
-      await apiRequest("POST", "/api/rides/request", {
-        destination,
-        pickupLocation: "Current Location"
-      });
-      onRequestRide();
-    } catch (error) {
-      console.error("Error requesting ride:", error);
+    // Auto-expand destination search when pickup is selected
+    if (!destination) {
+      setIsSearchExpanded(true);
+    } else {
+      // If both locations are set, show vehicle selection
+      setShowVehicleSelection(true);
     }
   };
 
-  return (
-    <div className="p-4">
-      {/* User Stats Section */}
-      <div className="mb-6 bg-white rounded-xl shadow-sm p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Your Stats</h2>
-          <button className="text-[#276EF1] text-sm font-medium">View All</button>
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#276EF1]">{user?.rating?.toFixed(1) || "0.0"}</div>
-            <div className="text-xs text-[#6E6E6E]">Rating</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#27AE60]">{user?.level || 0}</div>
-            <div className="text-xs text-[#6E6E6E]">Level</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#F5A623]">{user?.badges?.length || 0}</div>
-            <div className="text-xs text-[#6E6E6E]">Badges</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-[#6E6E6E]">{user?.totalRides || 0}</div>
-            <div className="text-xs text-[#6E6E6E]">Rides</div>
-          </div>
-        </div>
-      </div>
+  const handleDestinationSelect = (location: Location) => {
+    setDestination(location);
+    
+    // If both locations are set, show vehicle selection
+    if (pickup) {
+      setShowVehicleSelection(true);
+    }
+  };
 
-      {/* Request Ride Section */}
-      <div className="mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="text-lg font-semibold mb-3">Request a Ride</h2>
-          <div className="space-y-3">
-            <div className="flex items-center border-b border-gray-200 pb-3">
-              <div className="mr-3">
-                <div className="h-8 w-8 rounded-full bg-[#276EF1] flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-white" />
-                </div>
-              </div>
+  const handleVehicleSelect = (vehicle: VehicleType) => {
+    setSelectedVehicle(vehicle);
+    setShowPaymentSelection(true);
+  };
+
+  const handlePaymentSelect = (payment: PaymentMethod) => {
+    setSelectedPayment(payment);
+  };
+
+  const toggleSplitFare = () => {
+    setIsSplitFareEnabled(!isSplitFareEnabled);
+  };
+
+  const handleRequestRide = () => {
+    if (pickup && destination && selectedVehicle && selectedPayment) {
+      // In a real app, we would submit the ride request to the backend
+      onRequestRide();
+    }
+  };
+
+  const canRequestRide = pickup && destination && selectedVehicle && selectedPayment;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Map View */}
+      <div className="relative flex-grow overflow-hidden">
+        <RealTimeMap 
+          pickup={pickup ? {
+            latitude: pickup.latitude,
+            longitude: pickup.longitude,
+            name: pickup.name
+          } : undefined}
+          destination={destination ? {
+            latitude: destination.latitude,
+            longitude: destination.longitude,
+            name: destination.name
+          } : undefined}
+          driverLocation={driverLocation}
+          showLabels={true}
+          height="h-full"
+          interactive={true}
+          onMapClick={(lat, lng) => {
+            console.log("Map clicked at:", lat, lng);
+          }}
+        />
+        
+        {/* Search panel overlaid on the map */}
+        <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-lg transition-transform duration-300 transform">
+          {/* Drag handle */}
+          <div 
+            className="flex justify-center py-2 cursor-pointer"
+            onClick={() => setIsSearchExpanded(!isSearchExpanded)}
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
+          </div>
+          
+          <div className={`px-4 pb-4 overflow-hidden ${isSearchExpanded ? 'max-h-[70vh]' : 'max-h-24'} transition-all duration-300`}>
+            <div className="flex items-center mb-2">
               <div className="flex-1">
-                <div className="text-xs text-[#6E6E6E]">PICKUP LOCATION</div>
-                <div className="text-[#1A1A1A]">Current Location</div>
+                <h2 className="text-xl font-bold">Where to?</h2>
               </div>
+              <button className="p-2 rounded-full bg-gray-100">
+                {isSearchExpanded ? 
+                  <ChevronDown className="h-5 w-5 text-gray-600" /> : 
+                  <ChevronUp className="h-5 w-5 text-gray-600" />
+                }
+              </button>
             </div>
-            <div className="flex items-center">
-              <div className="mr-3">
-                <div className="h-8 w-8 rounded-full bg-[#27AE60] flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-white" />
-                </div>
+            
+            {/* Location search inputs */}
+            <div className="mb-4 space-y-4">
+              <div className="border-b border-gray-200 pb-2">
+                <LocationSearch 
+                  placeholder="Pickup location"
+                  onLocationSelect={handlePickupSelect}
+                  initialValue={pickup?.name || ""}
+                />
               </div>
-              <div className="flex-1">
-                <div className="text-xs text-[#6E6E6E]">DESTINATION</div>
-                <input 
-                  type="text" 
-                  placeholder="Where to?" 
-                  className="w-full text-[#1A1A1A] focus:outline-none" 
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
+              <div className="border-b border-gray-200 pb-2">
+                <LocationSearch 
+                  placeholder="Where to?"
+                  onLocationSelect={handleDestinationSelect}
+                  initialValue={destination?.name || ""}
                 />
               </div>
             </div>
-          </div>
-        </div>
-        <button 
-          className="w-full bg-[#276EF1] text-white font-semibold py-3 rounded-xl mt-3 shadow-lg shadow-[#276EF1]/20"
-          onClick={handleFindDrivers}
-        >
-          Find Drivers
-        </button>
-      </div>
-
-      {/* Map Section */}
-      <div className="mb-6">
-        <MockMap>
-          <div className="absolute inset-0 bg-black/30 rounded-xl flex items-center justify-center flex-col">
-            <button className="bg-white p-3 rounded-full shadow-lg mb-2">
-              <MapPin className="h-6 w-6 text-[#276EF1]" />
-            </button>
-            <span className="text-white text-sm font-medium">Show on Map</span>
-          </div>
-        </MockMap>
-      </div>
-
-      {/* Achievements Section */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Recent Achievements</h2>
-          <button className="text-[#276EF1] text-sm font-medium">View All</button>
-        </div>
-        <div className="space-y-3">
-          {achievements && achievements.length > 0 ? (
-            achievements.map((achievement) => (
-              <AchievementCard key={achievement.id} achievement={achievement} />
-            ))
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm p-4 text-center text-[#6E6E6E]">
-              No achievements yet. Complete rides to earn badges!
+            
+            {/* Saved places shortcuts */}
+            <div className="flex space-x-4 mb-4">
+              <div className="flex-1 p-3 bg-gray-50 rounded-lg text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <div className="w-8 h-8 rounded-full bg-[#276EF1]/10 flex items-center justify-center">
+                    <Compass className="h-4 w-4 text-[#276EF1]" />
+                  </div>
+                </div>
+                <div className="text-xs font-medium">Home</div>
+              </div>
+              <div className="flex-1 p-3 bg-gray-50 rounded-lg text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <div className="w-8 h-8 rounded-full bg-[#276EF1]/10 flex items-center justify-center">
+                    <Compass className="h-4 w-4 text-[#276EF1]" />
+                  </div>
+                </div>
+                <div className="text-xs font-medium">Work</div>
+              </div>
+              <div className="flex-1 p-3 bg-gray-50 rounded-lg text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <div className="w-8 h-8 rounded-full bg-[#276EF1]/10 flex items-center justify-center">
+                    <Compass className="h-4 w-4 text-[#276EF1]" />
+                  </div>
+                </div>
+                <div className="text-xs font-medium">Gym</div>
+              </div>
             </div>
-          )}
+            
+            {/* Vehicle selection */}
+            {showVehicleSelection && (
+              <div className="mb-4">
+                <VehicleSelection 
+                  onVehicleSelect={handleVehicleSelect}
+                  estimatedTime="12 min"
+                  distance="2.5 miles"
+                />
+              </div>
+            )}
+            
+            {/* Payment selection */}
+            {showPaymentSelection && (
+              <div className="mb-4">
+                <PaymentSelection 
+                  onPaymentSelect={handlePaymentSelect}
+                  onToggleSplitFare={toggleSplitFare}
+                  isSplitFareEnabled={isSplitFareEnabled}
+                />
+              </div>
+            )}
+            
+            {/* Request ride button */}
+            {canRequestRide && (
+              <div className="mt-4">
+                <Button 
+                  className="w-full py-6 text-lg rounded-xl"
+                  onClick={handleRequestRide}
+                >
+                  Request Ride
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* Leaderboard Section */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Leaderboard</h2>
-          <button className="text-[#276EF1] text-sm font-medium">View All</button>
-        </div>
-        <LeaderboardCard leaderboard={leaderboard || []} userRank={user?.leaderboardRank || 0} />
       </div>
     </div>
   );

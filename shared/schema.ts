@@ -45,6 +45,10 @@ export const rides = pgTable("rides", {
   duration: integer("duration").default(0),
   rating: integer("rating"),
   pointsEarned: integer("points_earned").default(0),
+  vehicleType: text("vehicle_type"),
+  paymentMethod: text("payment_method"),
+  splitFare: boolean("split_fare").default(false),
+  splitWith: text("split_with").array(),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 });
@@ -105,6 +109,11 @@ export const insertRideSchema = createInsertSchema(rides).pick({
   riderId: true,
   pickupLocation: true,
   destination: true,
+  vehicleType: true,
+  paymentMethod: true,
+  fare: true,
+  splitFare: true,
+  splitWith: true,
 });
 
 export const insertAchievementSchema = createInsertSchema(achievements).pick({
@@ -144,6 +153,35 @@ export type Achievement = typeof achievements.$inferSelect & {
 
 export type Badge = typeof badges.$inferSelect;
 
+// Vehicle types
+export type VehicleType = {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  baseRate: number;
+  capacity: number;
+  color: string;
+};
+
+// Payment methods
+export type PaymentMethod = {
+  id: string;
+  type: 'cash' | 'upi' | 'card' | 'wallet';
+  name: string;
+  icon: string;
+  isDefault?: boolean;
+};
+
+// Location with coordinates for map
+export type Location = {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+};
+
 // Additional types for UI components
 export type ActiveRide = {
   id: number;
@@ -154,6 +192,14 @@ export type ActiveRide = {
   fare: number;
   estimatedTimeRemaining: string;
   potentialPoints: number;
+  vehicleType?: string;
+  paymentMethod?: string;
+  currentLocation?: {
+    latitude: number;
+    longitude: number;
+  };
+  splitFare?: boolean;
+  splitWith?: string[];
 };
 
 export type CompleteRide = {
@@ -161,6 +207,8 @@ export type CompleteRide = {
   fare: number;
   pointsEarned: number;
   achievementUnlocked?: number;
+  vehicleType?: string;
+  paymentMethod?: string;
 };
 
 export type LeaderboardUser = {

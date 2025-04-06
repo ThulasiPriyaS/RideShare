@@ -69,7 +69,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rideData = {
         riderId: 1,
         pickupLocation: req.body.pickupLocation,
-        destination: req.body.destination
+        destination: req.body.destination,
+        vehicleType: req.body.vehicleType,
+        paymentMethod: req.body.paymentMethod,
+        fare: req.body.fare,
+        splitFare: req.body.splitFare,
+        splitWith: req.body.splitWith
       };
       
       const ride = await storage.createRide(rideData);

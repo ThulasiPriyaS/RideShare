@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { Check, CreditCard, Banknote, Smartphone, Car, Bike, Users } from "lucide-react";
 import { CompleteRide, Achievement } from "@shared/schema";
 import RatingStars from "@/components/ui/rating-stars";
 import BadgeIcon from "@/components/ui/badge-icon";
@@ -72,6 +72,51 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
           <div className="text-center">
             <div className="text-2xl font-bold text-[#276EF1]">${ride.fare.toFixed(2)}</div>
             <div className="text-sm text-[#6E6E6E]">Fare</div>
+          </div>
+        </div>
+        
+        {/* Ride Details */}
+        <div className="bg-neutral-50 rounded-lg p-4 mb-6">
+          <div className="flex justify-between mb-2">
+            <div className="flex items-center">
+              {ride.vehicleType && (
+                <div className="mr-2">
+                  {ride.vehicleType === 'standard' || ride.vehicleType === 'premium' ? (
+                    <Car className="h-5 w-5 text-[#276EF1]" />
+                  ) : ride.vehicleType === 'pinkbike' ? (
+                    <Bike className="h-5 w-5 text-[#F06292]" />
+                  ) : (
+                    <Users className="h-5 w-5 text-[#27AE60]" />
+                  )}
+                </div>
+              )}
+              <div>
+                <span className="text-sm font-medium">
+                  {ride.vehicleType 
+                    ? ride.vehicleType.charAt(0).toUpperCase() + ride.vehicleType.slice(1) 
+                    : "Standard"}
+                </span>
+              </div>
+            </div>
+            
+            {ride.paymentMethod && (
+              <div className="flex items-center">
+                <div className="mr-2">
+                  {ride.paymentMethod === 'cash' ? (
+                    <Banknote className="h-5 w-5 text-[#6E6E6E]" />
+                  ) : ride.paymentMethod === 'upi' ? (
+                    <Smartphone className="h-5 w-5 text-[#6E6E6E]" />
+                  ) : (
+                    <CreditCard className="h-5 w-5 text-[#6E6E6E]" />
+                  )}
+                </div>
+                <div>
+                  <span className="text-sm font-medium">
+                    {ride.paymentMethod.charAt(0).toUpperCase() + ride.paymentMethod.slice(1)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         
