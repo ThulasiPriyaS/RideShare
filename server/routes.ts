@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertRideSchema } from "@shared/schema";
 import { z } from "zod";
+import { supabase } from "./supabase";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -194,6 +195,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leaderboard", async (req, res) => {
     const leaderboard = await storage.getLeaderboard();
     res.json(leaderboard);
+  });
+  
+  // API config endpoints - securely provide credentials to frontend
+  app.get("/api/config/googleMapsApiKey", (req, res) => {
+    // Only provide the API key, never return the full environment object
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+      return res.status(500).json({ 
+        error: "Google Maps API key not configured", 
+        message: "The server doesn't have a Google Maps API key configured."
+      });
+    }
+    
+    res.json({ apiKey: process.env.GOOGLE_MAPS_API_KEY });
+  });
+  
+  app.get("/api/config/supabaseConfig", (req, res) => {
+    // Only provide specific config, never return the full environment object
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      return res.status(500).json({ 
+        error: "Supabase configuration not complete", 
+        message: "The server doesn't have Supabase URL or anon key configured."
+      });
+    }
+    
+    res.json({ 
+      url: process.env.SUPABASE_URL,
+      key: process.env.SUPABASE_ANON_KEY
+    });
+  });
+  
+  // Supabase authentication endpoints
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ 
+          error: "Invalid request", 
+          message: "Email and password are required"
+        });
+      }
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      
+      if (error) {
+        return res.status(400).json({ 
+          error: "Signup failed", 
+          message: error.message
+        });
+      }
+      
+      res.json({ 
+        message: "Signup successful", 
+        user: data.user,
+        session: data.session
+      });
+    } catch (error) {
+      console.error("Signup error:", error);
+      res.status(500).json({ 
+        error: "Server error", 
+        message: "An unexpected error occurred during signup"
+      });
+    }
+  });
+  
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ 
+          error: "Invalid request", 
+          message: "Email and password are required"
+        });
+      }
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        return res.status(400).json({ 
+          error: "Login failed", 
+          message: error.message
+        });
+      }
+      
+      res.json({ 
+        message: "Login successful", 
+        user: data.user,
+        session: data.session
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ 
+        error: "Server error", 
+        message: "An unexpected error occurred during login"
+      });
+    }
+  });
+  
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        return res.status(400).json({ 
+          error: "Logout failed", 
+          message: error.message
+        });
+      }
+      
+      res.json({ message: "Logout successful" });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ 
+        error: "Server error", 
+        message: "An unexpected error occurred during logout"
+      });
+    }
   });
 
   return httpServer;
