@@ -1,0 +1,14 @@
+Assistant checkpoint: Implement Supabase real-time ride status updates
+
+Assistant generated file changes:
+- client/src/components/rider/RideWaiting.tsx: Add Supabase realtime subscription for ride updates
+- server/routes.ts: Update driver accept-ride endpoint to use Supabase
+
+---
+
+User prompt:
+
+do this and use supabase
+
+Replit-Commit-Author: Assistant
+Replit-Commit-Session-Id: a42c4ccb-d923-4f3f-b586-a4387392b17c
