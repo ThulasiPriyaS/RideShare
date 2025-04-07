@@ -64,6 +64,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Ride endpoints
+  // Active ride management
+  // Define a type for the pending ride
+  interface PendingRide {
+    id: number;
+    riderId: number;
+    pickupLocation: string;
+    destination: string;
+    status: string;
+    createdAt: Date;
+    fare: number;
+  }
+  
+  let pendingRides: PendingRide[] = [];
+  
   app.post("/api/rides/request", async (req, res) => {
     try {
       // For demo, use the first user as the rider
@@ -80,16 +94,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const ride = await storage.createRide(rideData);
       
-      // Auto-assign the first available driver
-      const drivers = await storage.getAvailableDrivers();
-      if (drivers.length > 0) {
-        await storage.assignDriverToRide(ride.id, drivers[0].id);
-      }
+      // Add to pending rides list instead of auto-assigning
+      pendingRides.push({
+        id: ride.id,
+        riderId: ride.riderId,
+        pickupLocation: ride.pickupLocation,
+        destination: ride.destination,
+        status: 'pending',
+        createdAt: new Date(),
+        fare: ride.fare || 12.50, // Fallback fare
+      });
       
       res.status(201).json(ride);
     } catch (error) {
       res.status(500).json({ message: "Failed to request ride" });
     }
+  });
+  
+  // Get pending rides for drivers
+  app.get("/api/driver/pending-rides", (req, res) => {
+    res.json(pendingRides);
+  });
+  
+  // Driver accepts a ride
+  app.post("/api/driver/accept-ride", async (req, res) => {
+    const { rideId, driverId } = req.body;
+    
+    if (!rideId || !driverId) {
+      return res.status(400).json({ message: "Missing rideId or driverId" });
+    }
+    
+    try {
+      // Find the pending ride
+      const pendingRideIndex = pendingRides.findIndex(ride => ride.id === Number(rideId));
+      
+      if (pendingRideIndex === -1) {
+        return res.status(404).json({ message: "Ride not found or already accepted" });
+      }
+      
+      // Get the ride and update storage
+      const ride = await storage.getRide(rideId);
+      if (!ride) {
+        return res.status(404).json({ message: "Ride not found in storage" });
+      }
+      
+      await storage.assignDriverToRide(rideId, driverId);
+      await storage.updateRideStatus(rideId, "in_progress");
+      
+      // Remove from pending rides
+      const acceptedRide = pendingRides.splice(pendingRideIndex, 1)[0];
+      
+      res.json({ 
+        message: "Ride accepted successfully", 
+        ride: {
+          ...acceptedRide,
+          driverId,
+          status: 'in_progress',
+        }
+      });
+    } catch (error) {
+      console.error("Error accepting ride:", error);
+      res.status(500).json({ message: "Failed to accept ride" });
+    }
+  });
+  
+  // Driver rejects a ride
+  app.post("/api/driver/reject-ride", (req, res) => {
+    const { rideId } = req.body;
+    
+    if (!rideId) {
+      return res.status(400).json({ message: "Missing rideId" });
+    }
+    
+    // Find the pending ride
+    const pendingRideIndex = pendingRides.findIndex(ride => ride.id === Number(rideId));
+    
+    if (pendingRideIndex === -1) {
+      return res.status(404).json({ message: "Ride not found or already accepted/rejected" });
+    }
+    
+    // Remove from pending rides
+    pendingRides.splice(pendingRideIndex, 1);
+    
+    res.json({ message: "Ride rejected successfully" });
   });
   
   app.get("/api/rides/:id", async (req, res) => {

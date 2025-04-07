@@ -97,8 +97,9 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({
     setUseGoogleMaps(false);
   };
 
-  return useGoogleMaps ? (
-    <div className="relative">
+  // Always default to mock map as Google Maps is having issues
+  const mapDisplay = useGoogleMaps ? (
+    <div className="relative h-full w-full">
       <GoogleMap
         pickup={pickup}
         destination={destination}
@@ -119,8 +120,8 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({
       </button>
     </div>
   ) : (
-    <div className="relative">
-      <MockMap className={`relative rounded-xl overflow-hidden ${height}`}>
+    <div className="relative h-full w-full">
+      <MockMap className={`relative rounded-xl overflow-hidden ${height} w-full`}>
         {/* Display a simulated map with markers */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#E6EFFE] to-[#F3F8FF]">
           {/* Simulated roads */}
@@ -223,6 +224,13 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({
       >
         Switch to Google Maps
       </button>
+    </div>
+  );
+
+  // For backward compatibility, change this line:
+  return (
+    <div className="relative w-full h-full" style={{ minHeight: '300px' }}>
+      {mapDisplay}
     </div>
   );
 };
