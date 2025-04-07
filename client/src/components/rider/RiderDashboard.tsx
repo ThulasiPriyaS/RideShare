@@ -8,7 +8,13 @@ import { Location, VehicleType, PaymentMethod } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 
 interface RiderDashboardProps {
-  onRequestRide: () => void;
+  onRequestRide: (
+    pickup: Location,
+    destination: Location,
+    vehicle: VehicleType,
+    payment: PaymentMethod,
+    splitFare: boolean
+  ) => void;
 }
 
 const RiderDashboard: React.FC<RiderDashboardProps> = ({ onRequestRide }) => {
@@ -20,6 +26,7 @@ const RiderDashboard: React.FC<RiderDashboardProps> = ({ onRequestRide }) => {
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
   const [showPaymentSelection, setShowPaymentSelection] = useState(false);
   const [isSplitFareEnabled, setIsSplitFareEnabled] = useState(false);
+  const [isRequestingRide, setIsRequestingRide] = useState(false);
 
   // Random driver location for demonstration
   const driverLocation = {
@@ -63,8 +70,16 @@ const RiderDashboard: React.FC<RiderDashboardProps> = ({ onRequestRide }) => {
 
   const handleRequestRide = () => {
     if (pickup && destination && selectedVehicle && selectedPayment) {
-      // In a real app, we would submit the ride request to the backend
-      onRequestRide();
+      setIsRequestingRide(true);
+      
+      // Send the ride request with all details to the parent component
+      onRequestRide(
+        pickup,
+        destination,
+        selectedVehicle,
+        selectedPayment,
+        isSplitFareEnabled
+      );
     }
   };
 

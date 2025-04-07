@@ -38,76 +38,99 @@ const DriverPage = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const { toast } = useToast();
 
-  // Check for pending rides from backend
+  // Check for pending rides from backend using Supabase real-time
   useEffect(() => {
     if (!driverState.isActive || driverState.currentRide || driverState.pendingRide) {
       return; // Don't check if not active or already have a ride
     }
 
+    // Initial check for pending rides
     const checkForRides = async () => {
       try {
         const response = await apiRequest("GET", "/api/driver/pending-rides");
         const pendingRides = await response.json();
         
         if (pendingRides && pendingRides.length > 0) {
-          // Take the first pending ride
-          const ride = pendingRides[0];
-          
-          // Parse locations from strings if needed
-          let pickup, destination;
-          
-          try {
-            pickup = typeof ride.pickupLocation === 'string' 
-              ? JSON.parse(ride.pickupLocation) 
-              : ride.pickupLocation;
-              
-            destination = typeof ride.destination === 'string' 
-              ? JSON.parse(ride.destination) 
-              : ride.destination;
-          } catch (e) {
-            // Use fallback locations if parsing fails
-            pickup = {
-              latitude: 40.748,
-              longitude: -73.985,
-              name: 'Pickup Location',
-            };
-            
-            destination = {
-              latitude: 40.758,
-              longitude: -73.977,
-              name: 'Destination',
-            };
-          }
-          
-          setDriverState(prev => ({
-            ...prev,
-            pendingRide: {
-              id: ride.id,
-              userId: ride.riderId,
-              userName: 'Rider', // In a real app, fetch user info
-              pickup,
-              destination,
-              distance: '1.2 miles', // Calculate based on coordinates
-              estimatedTime: '9 mins', // Calculate based on distance
-              fare: ride.fare || 12.50,
-              paymentMethod: 'Card',
-              rating: 4.9, // In a real app, fetch from user
-              totalRides: 24, // In a real app, fetch from user
-            }
-          }));
+          handleNewRide(pendingRides[0]);
         }
       } catch (error) {
         console.error("Error checking for rides:", error);
       }
     };
+    
+    // Function to process a new ride
+    const handleNewRide = (ride: any) => {
+      // Parse locations from strings if needed
+      let pickup, destination;
+      
+      try {
+        pickup = typeof ride.pickupLocation === 'string' 
+          ? JSON.parse(ride.pickupLocation) 
+          : ride.pickupLocation;
+          
+        destination = typeof ride.destination === 'string' 
+          ? JSON.parse(ride.destination) 
+          : ride.destination;
+      } catch (e) {
+        // Use fallback locations if parsing fails
+        pickup = {
+          latitude: 40.748,
+          longitude: -73.985,
+          name: 'Pickup Location',
+        };
+        
+        destination = {
+          latitude: 40.758,
+          longitude: -73.977,
+          name: 'Destination',
+        };
+      }
+      
+      setDriverState(prev => ({
+        ...prev,
+        pendingRide: {
+          id: ride.id,
+          userId: ride.riderId,
+          userName: 'Rider', // In a real app, fetch user info
+          pickup,
+          destination,
+          distance: '1.2 miles', // Calculate based on coordinates
+          estimatedTime: '9 mins', // Calculate based on distance
+          fare: ride.fare || 12.50,
+          paymentMethod: 'Card',
+          rating: 4.9, // In a real app, fetch from user
+          totalRides: 24, // In a real app, fetch from user
+        }
+      }));
+      
+      // Notify driver with a sound and toast
+      toast({
+        title: "New ride request!",
+        description: `${pickup.name} → ${destination.name}`,
+      });
+    };
 
     // Check immediately on first load
     checkForRides();
     
-    // Then poll every 5 seconds
-    const interval = setInterval(checkForRides, 5000);
-    return () => clearInterval(interval);
-  }, [driverState.isActive, driverState.currentRide, driverState.pendingRide]);
+    // Setup real-time updates for new rides
+    import('@/lib/supabaseRealtime').then(({ subscribeToNewRides }) => {
+      let unsubscribe: (() => void) | null = null;
+      
+      const setupRealtime = async () => {
+        unsubscribe = await subscribeToNewRides(handleNewRide);
+      };
+      
+      setupRealtime();
+      
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
+    });
+    
+  }, [driverState.isActive, driverState.currentRide, driverState.pendingRide, toast]);
 
   // Handle driver verification
   const handleVerifyDriver = () => {

@@ -208,6 +208,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(completeRide);
   });
   
+  app.post("/api/rides/:id/cancel", async (req, res) => {
+    const rideId = parseInt(req.params.id);
+    
+    try {
+      // Get the ride
+      const ride = await storage.getRide(rideId);
+      
+      if (!ride) {
+        return res.status(404).json({ message: "Ride not found" });
+      }
+      
+      // Update ride status to canceled
+      await storage.updateRideStatus(rideId, "canceled");
+      
+      // Remove from pending rides list if it's there
+      const pendingRideIndex = pendingRides.findIndex(ride => ride.id === rideId);
+      if (pendingRideIndex !== -1) {
+        pendingRides.splice(pendingRideIndex, 1);
+      }
+      
+      res.json({ success: true, message: "Ride canceled successfully" });
+    } catch (error) {
+      console.error("Error canceling ride:", error);
+      res.status(500).json({ message: "Failed to cancel ride" });
+    }
+  });
+  
   app.post("/api/rides/:id/rate", async (req, res) => {
     const rideId = parseInt(req.params.id);
     const { rating } = req.body;
