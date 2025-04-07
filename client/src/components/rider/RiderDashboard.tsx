@@ -73,7 +73,7 @@ const RiderDashboard: React.FC<RiderDashboardProps> = ({ onRequestRide }) => {
   return (
     <div className="flex flex-col h-full">
       {/* Map View */}
-      <div className="relative flex-grow overflow-hidden">
+      <div className="relative flex-grow overflow-hidden" style={{ height: "calc(100vh - 64px)" }}>
         <RealTimeMap 
           pickup={pickup ? {
             latitude: pickup.latitude,
@@ -104,7 +104,7 @@ const RiderDashboard: React.FC<RiderDashboardProps> = ({ onRequestRide }) => {
             <div className="w-10 h-1 bg-gray-300 rounded-full"></div>
           </div>
           
-          <div className={`px-4 pb-4 overflow-hidden ${isSearchExpanded ? 'max-h-[70vh]' : 'max-h-24'} transition-all duration-300`}>
+          <div className={`px-4 pb-4 overflow-auto ${isSearchExpanded ? 'max-h-[60vh]' : 'max-h-24'} transition-all duration-300`}>
             <div className="flex items-center mb-2">
               <div className="flex-1">
                 <h2 className="text-xl font-bold">Where to?</h2>
@@ -187,7 +187,7 @@ const RiderDashboard: React.FC<RiderDashboardProps> = ({ onRequestRide }) => {
             
             {/* Request ride button */}
             {canRequestRide && (
-              <div className="mt-4">
+              <div className="mt-4 mb-6">
                 <Button 
                   className="w-full py-6 text-lg rounded-xl"
                   onClick={handleRequestRide}
