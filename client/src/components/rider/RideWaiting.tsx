@@ -54,14 +54,24 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
       unsubscribe = await subscribeToRideUpdates(rideId, (updatedRide) => {
         console.log('Ride updated:', updatedRide);
         
-        console.log('Received ride update:', updatedRide);
-        
         // Check if ride was accepted by a driver
         if ((updatedRide.status === 'in_progress' || updatedRide.status === 'accepted') && updatedRide.driverId) {
-          toast({
-            title: "Driver found!",
-            description: "A driver has accepted your ride request.",
-          });
+          // Fetch driver details to show in notification
+          apiRequest('GET', `/api/drivers/${updatedRide.driverId}`)
+            .then(response => response.json())
+            .then(driverData => {
+              toast({
+                title: "Driver found!",
+                description: `${driverData.name || 'Your driver'} (${driverData.vehicle}) is on the way!`,
+              });
+            })
+            .catch(err => {
+              console.error('Error fetching driver details:', err);
+              toast({
+                title: "Driver found!",
+                description: "A driver has accepted your ride request.",
+              });
+            });
           
           onRideAccepted(updatedRide.driverId);
         }

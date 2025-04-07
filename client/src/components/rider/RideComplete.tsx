@@ -6,6 +6,8 @@ import RatingStars from "@/components/ui/rating-stars";
 import BadgeIcon from "@/components/ui/badge-icon";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import RideCompletion from "@/components/rider/RideCompletion";
+import UpiPayment from "@/components/payment/UpiPayment";
+import GamifiedRating from "@/components/ui/gamified-rating";
 
 interface RideCompleteProps {
   rideId: number;
@@ -15,6 +17,7 @@ interface RideCompleteProps {
 const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
   const [rating, setRating] = useState(5);
   const [showDualConfirmation, setShowDualConfirmation] = useState(true);
+  const [showUpiPayment, setShowUpiPayment] = useState(false);
   const [completionStatus, setCompletionStatus] = useState({
     riderCompleted: false,
     driverCompleted: false,
@@ -77,6 +80,14 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
   
   const handleCompletionConfirmed = () => {
     setShowDualConfirmation(false);
+    // Check if payment method is UPI and should show UPI payment screen
+    if (ride?.paymentMethod === 'upi') {
+      setShowUpiPayment(true);
+    }
+  };
+
+  const handlePaymentComplete = () => {
+    setShowUpiPayment(false);
   };
 
   if (!ride) {
@@ -95,6 +106,22 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
         onComplete={handleCompletionConfirmed}
         isRider={true}
       />
+    );
+  }
+
+  // Show UPI payment if method is UPI
+  if (showUpiPayment && ride.paymentMethod === 'upi') {
+    return (
+      <div className="p-4">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <UpiPayment
+            amount={ride.fare}
+            merchantUpi="merchant@upi"
+            merchantName="RideShare Driver"
+            onPaymentComplete={handlePaymentComplete}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -194,32 +221,12 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
           </div>
         )}
         
-        {/* Rate Driver */}
-        <h3 className="font-semibold mb-3">Rate your driver</h3>
-        <div className="flex justify-center mb-4">
-          <RatingStars 
-            rating={rating}
-            size="lg"
-            interactive
-            onChange={setRating}
-          />
-        </div>
-        
-        <button 
-          className="w-full bg-[#276EF1] text-white font-semibold py-3 rounded-xl shadow-lg shadow-[#276EF1]/20 mb-2"
-          onClick={handleSubmitRating}
-          disabled={submitRatingMutation.isPending}
-        >
-          {submitRatingMutation.isPending ? "Submitting..." : "Submit Rating"}
-        </button>
-
-        <button 
-          className="w-full bg-white text-[#276EF1] font-semibold py-3 rounded-xl border border-[#276EF1]"
-          onClick={handleSkip}
-          disabled={submitRatingMutation.isPending}
-        >
-          Skip
-        </button>
+        {/* Gamified Rating */}
+        <GamifiedRating
+          initialRating={rating}
+          onRatingChange={setRating}
+          onComplete={handleSubmitRating}
+        />
       </div>
     </div>
   );
