@@ -16,7 +16,7 @@ const VehicleSelection: React.FC<VehicleSelectionProps> = ({ onVehicleSelect, es
       name: "Standard",
       icon: "car",
       description: "Affordable, everyday rides",
-      baseRate: 15,
+      baseRate: 150,
       capacity: 4,
       color: "#276EF1"
     },
@@ -25,7 +25,7 @@ const VehicleSelection: React.FC<VehicleSelectionProps> = ({ onVehicleSelect, es
       name: "Premium",
       icon: "car",
       description: "Luxury rides with top-rated drivers",
-      baseRate: 25,
+      baseRate: 250,
       capacity: 4,
       color: "#000000"
     },
@@ -34,7 +34,7 @@ const VehicleSelection: React.FC<VehicleSelectionProps> = ({ onVehicleSelect, es
       name: "RideShare",
       icon: "users",
       description: "Share your ride, save money",
-      baseRate: 10,
+      baseRate: 100,
       capacity: 2,
       color: "#27AE60"
     },
@@ -43,7 +43,7 @@ const VehicleSelection: React.FC<VehicleSelectionProps> = ({ onVehicleSelect, es
       name: "Pink Bike",
       icon: "bike",
       description: "Quick, convenient rides on two wheels",
-      baseRate: 8,
+      baseRate: 80,
       capacity: 1,
       color: "#F06292"
     }
@@ -119,7 +119,7 @@ const VehicleSelection: React.FC<VehicleSelectionProps> = ({ onVehicleSelect, es
               <div className="text-xs text-[#6E6E6E] mb-1">{vehicle.description}</div>
               
               <div className="flex justify-between items-center">
-                <div className="font-semibold">${calculateFare(vehicle.baseRate).toFixed(2)}</div>
+                <div className="font-semibold">₹{calculateFare(vehicle.baseRate).toFixed(2)}</div>
                 <div className="text-xs text-[#6E6E6E]">{vehicle.capacity} seats</div>
               </div>
             </div>
