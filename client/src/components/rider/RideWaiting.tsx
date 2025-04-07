@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Location } from '@shared/schema';
+import { useNavigate } from 'react-router-dom';
 
 interface RideWaitingProps {
   rideId: number;
@@ -28,6 +29,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
   const [userRating, setUserRating] = useState<number | null>(null);
   const [isPriorityRider, setIsPriorityRider] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Fetch initial ride details and user rating
   useEffect(() => {
@@ -38,18 +40,18 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
         if (rideResponse.ok) {
           const data = await rideResponse.json();
           setRideDetails(data);
-          
+
           // Fetch user profile for rating
           if (data.riderId) {
             const userResponse = await apiRequest('GET', `/api/users/${data.riderId}`);
             if (userResponse.ok) {
               const userData = await userResponse.json();
               setUserRating(userData.rating || 4.5);
-              
+
               // Check if user is a priority rider (rating >= 4.8)
               const isPriority = (userData.rating || 4.5) >= 4.8;
               setIsPriorityRider(isPriority);
-              
+
               // Show special toast for priority riders
               if (isPriority) {
                 toast({
@@ -74,15 +76,15 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
   // Setup real-time updates
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
-    
+
     const setupRealtime = async () => {
       unsubscribe = await subscribeToRideUpdates(rideId, (data) => {
         console.log('Ride updated:', data);
-        
+
         // Handle both direct database updates and broadcast events
         let updatedRide;
         let driverInfo = null;
-        
+
         // Check if this is a broadcast event with payload
         if (data.type === 'broadcast' && data.event === 'ride_update') {
           updatedRide = data.payload;
@@ -93,7 +95,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
           // This is a direct database update
           updatedRide = data;
         }
-        
+
         // Check if ride was accepted by a driver
         if ((updatedRide.status === 'in_progress' || updatedRide.status === 'accepted') && updatedRide.driverId) {
           if (driverInfo) {
@@ -102,7 +104,8 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
               title: "Driver found!",
               description: `${driverInfo.name || 'Your driver'} (${driverInfo.vehicle}) is on the way!`,
             });
-            
+            navigate(`/ride/${rideId}`); // Navigate to ride details page
+
             // Call the onRideAccepted callback
             onRideAccepted(updatedRide.driverId);
           } else {
@@ -114,7 +117,8 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
                   title: "Driver found!",
                   description: `${driverData.name || 'Your driver'} (${driverData.vehicle}) is on the way!`,
                 });
-                
+                navigate(`/ride/${rideId}`); // Navigate to ride details page
+
                 // Call the onRideAccepted callback
                 onRideAccepted(updatedRide.driverId);
               })
@@ -124,33 +128,34 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
                   title: "Driver found!",
                   description: "A driver has accepted your ride request.",
                 });
-                
+                navigate(`/ride/${rideId}`); // Navigate to ride details page
+
                 // Still call onRideAccepted even if we couldn't fetch driver details
                 onRideAccepted(updatedRide.driverId);
               });
           }
         }
-        
+
         // Update ride details in state
         setRideDetails(updatedRide);
       });
     };
-    
+
     setupRealtime();
-    
+
     return () => {
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, [rideId, onRideAccepted, toast]);
+  }, [rideId, onRideAccepted, toast, navigate]);
 
   // Timer for elapsed time
   useEffect(() => {
     const timer = setInterval(() => {
       setElapsedTime(prev => prev + 1);
     }, 1000);
-    
+
     return () => clearInterval(timer);
   }, []);
 
@@ -165,7 +170,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
   const handleCancelRide = async () => {
     try {
       const response = await apiRequest('POST', `/api/rides/${rideId}/cancel`, {});
-      
+
       if (response.ok) {
         toast({
           title: "Ride canceled",
@@ -215,7 +220,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
           showLabels={true}
           height="h-full"
         />
-        
+
         {/* Status overlay */}
         <div className="absolute inset-x-0 top-0 p-4">
           <div className="bg-white rounded-lg shadow-lg p-4">
@@ -245,14 +250,14 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
                   </div>
                 </div>
               </div>
-              
+
               <div className="w-10 h-10 flex items-center justify-center">
                 <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
               </div>
             </div>
           </div>
         </div>
-        
+
         {/* Bottom panel */}
         <div className="absolute inset-x-0 bottom-0 bg-white p-4 rounded-t-xl shadow-lg">
           <div className="space-y-4">
@@ -262,7 +267,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
                 <div className="w-0.5 h-10 bg-gray-200"></div>
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
               </div>
-              
+
               <div className="space-y-2 flex-1">
                 <div>
                   <div className="text-xs text-gray-500">PICKUP</div>
@@ -274,7 +279,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
                 </div>
               </div>
             </div>
-            
+
             <div className="flex justify-between items-center">
               <div>
                 <div className="text-xs text-gray-500">ESTIMATED FARE</div>
@@ -289,7 +294,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
                   </div>
                 )}
               </div>
-              
+
               <Button 
                 variant="outline" 
                 className="border-red-500 text-red-500 hover:bg-red-50"

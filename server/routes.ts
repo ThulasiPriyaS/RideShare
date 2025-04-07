@@ -208,12 +208,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Continue even if supabase fails - the REST API will still work
       }
       
+      // Update ride status in Supabase
+      const { error: supaError } = await supabase
+        .from('rides')
+        .update({ 
+          status: 'accepted',
+          driver_id: driverId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', rideId);
+
+      if (supaError) {
+        console.error("Error updating ride in Supabase:", supaError);
+      }
+
       res.json({ 
         message: "Ride accepted successfully", 
         ride: {
           ...acceptedRide,
           driverId,
-          status: 'accepted', // Changed to 'accepted' first, then driver changes to 'in_progress'
+          status: 'accepted',
           driver: {
             name: driver.name,
             vehicle: driver.vehicle,
