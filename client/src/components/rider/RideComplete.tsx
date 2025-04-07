@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Check, CreditCard, Banknote, Smartphone, Car, Bike, Users } from "lucide-react";
+import { Check, CreditCard, Banknote, Smartphone, Car, Bike, Users, Star } from "lucide-react";
 import { CompleteRide, Achievement } from "@shared/schema";
 import RatingStars from "@/components/ui/rating-stars";
 import BadgeIcon from "@/components/ui/badge-icon";
@@ -18,6 +18,8 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
   const [rating, setRating] = useState(5);
   const [showDualConfirmation, setShowDualConfirmation] = useState(true);
   const [showUpiPayment, setShowUpiPayment] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
+  const [isPriorityRider, setIsPriorityRider] = useState(false);
   const [completionStatus, setCompletionStatus] = useState({
     riderCompleted: false,
     driverCompleted: false,
@@ -33,7 +35,7 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
     enabled: !!ride
   });
 
-  // Check completion status when component mounts
+  // Check completion status when component mounts and get user rating
   useEffect(() => {
     const checkCompletionStatus = async () => {
       try {
@@ -56,7 +58,26 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
       }
     };
     
+    const getUserRating = async () => {
+      try {
+        const response = await apiRequest('GET', '/api/user/current');
+        if (response.ok) {
+          const userData = await response.json();
+          setUserRating(userData.rating || null);
+          
+          // Set priority status based on high rating
+          // Typically 4.8+ is considered a priority rider
+          if (userData.rating && userData.rating >= 4.8) {
+            setIsPriorityRider(true);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch user rating:", error);
+      }
+    };
+    
     checkCompletionStatus();
+    getUserRating();
   }, [rideId]);
 
   const submitRatingMutation = useMutation({
@@ -221,12 +242,45 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
           </div>
         )}
         
+        {/* Priority Rider Status */}
+        {isPriorityRider && (
+          <div className="bg-yellow-50 rounded-lg p-4 mb-6 border border-yellow-200">
+            <div className="flex items-center">
+              <div className="mr-4">
+                <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <Star className="h-5 w-5 text-yellow-500" fill="currentColor" />
+                </div>
+              </div>
+              <div className="flex-1 text-left">
+                <h3 className="font-semibold text-yellow-700">Priority Rider Status</h3>
+                <p className="text-sm text-yellow-600">
+                  Your high rating ({userRating?.toFixed(1)}/5.0) gives you priority matching with drivers.
+                </p>
+                <p className="text-xs mt-1 text-yellow-700 font-medium">
+                  Keep it up to enjoy faster pickups and premium service!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Gamified Rating */}
-        <GamifiedRating
-          initialRating={rating}
-          onRatingChange={setRating}
-          onComplete={handleSubmitRating}
-        />
+        <div>
+          <div className="text-center mb-3">
+            <p className="text-sm text-gray-600">Rate your driver</p>
+            <p className="text-xs text-yellow-600 mb-2">
+              High driver ratings help improve the service for everyone
+            </p>
+          </div>
+          <GamifiedRating
+            initialRating={rating}
+            onRatingChange={setRating}
+            onComplete={handleSubmitRating}
+          />
+          <div className="mt-3 text-center text-xs text-gray-500">
+            <p>Your rating helps match quality drivers with priority riders like you.</p>
+          </div>
+        </div>
       </div>
     </div>
   );

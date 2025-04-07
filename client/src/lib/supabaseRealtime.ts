@@ -14,6 +14,7 @@ export async function subscribeToRideUpdates(
   
   const channel = supabase
     .channel(`ride:${rideId}`)
+    // Listen for database changes
     .on(
       'postgres_changes',
       {
@@ -26,6 +27,10 @@ export async function subscribeToRideUpdates(
         onUpdate(payload.new);
       }
     )
+    // Listen for broadcast messages (driver notifications, etc.)
+    .on('broadcast', { event: 'ride_update' }, (payload) => {
+      onUpdate(payload);
+    })
     .subscribe();
   
   // Return unsubscribe function

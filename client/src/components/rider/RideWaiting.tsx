@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Clock, MapPin, User, Car } from 'lucide-react';
+import { Clock, MapPin, User, Car, Star } from 'lucide-react';
 import RealTimeMap from '@/components/map/RealTimeMap';
 import { subscribeToRideUpdates } from '@/lib/supabaseRealtime';
 import { useToast } from '@/hooks/use-toast';
@@ -25,57 +25,113 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [rideDetails, setRideDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [userRating, setUserRating] = useState<number | null>(null);
+  const [isPriorityRider, setIsPriorityRider] = useState(false);
   const { toast } = useToast();
 
-  // Fetch initial ride details
+  // Fetch initial ride details and user rating
   useEffect(() => {
-    const fetchRide = async () => {
+    const fetchRideAndUserInfo = async () => {
       try {
-        const response = await apiRequest('GET', `/api/rides/${rideId}`);
-        if (response.ok) {
-          const data = await response.json();
+        // Fetch ride details
+        const rideResponse = await apiRequest('GET', `/api/rides/${rideId}`);
+        if (rideResponse.ok) {
+          const data = await rideResponse.json();
           setRideDetails(data);
+          
+          // Fetch user profile for rating
+          if (data.riderId) {
+            const userResponse = await apiRequest('GET', `/api/users/${data.riderId}`);
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              setUserRating(userData.rating || 4.5);
+              
+              // Check if user is a priority rider (rating >= 4.8)
+              const isPriority = (userData.rating || 4.5) >= 4.8;
+              setIsPriorityRider(isPriority);
+              
+              // Show special toast for priority riders
+              if (isPriority) {
+                toast({
+                  title: "⭐ Priority Rider Status",
+                  description: "With your high rating, you'll be matched with drivers faster!",
+                  variant: "default",
+                });
+              }
+            }
+          }
         }
       } catch (error) {
-        console.error('Error fetching ride details:', error);
+        console.error('Error fetching ride details or user info:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRide();
-  }, [rideId]);
+    fetchRideAndUserInfo();
+  }, [rideId, toast]);
 
   // Setup real-time updates
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
     
     const setupRealtime = async () => {
-      unsubscribe = await subscribeToRideUpdates(rideId, (updatedRide) => {
-        console.log('Ride updated:', updatedRide);
+      unsubscribe = await subscribeToRideUpdates(rideId, (data) => {
+        console.log('Ride updated:', data);
+        
+        // Handle both direct database updates and broadcast events
+        let updatedRide;
+        let driverInfo = null;
+        
+        // Check if this is a broadcast event with payload
+        if (data.type === 'broadcast' && data.event === 'ride_update') {
+          updatedRide = data.payload;
+          if (updatedRide.driver) {
+            driverInfo = updatedRide.driver;
+          }
+        } else {
+          // This is a direct database update
+          updatedRide = data;
+        }
         
         // Check if ride was accepted by a driver
         if ((updatedRide.status === 'in_progress' || updatedRide.status === 'accepted') && updatedRide.driverId) {
-          // Fetch driver details to show in notification
-          apiRequest('GET', `/api/drivers/${updatedRide.driverId}`)
-            .then(response => response.json())
-            .then(driverData => {
-              toast({
-                title: "Driver found!",
-                description: `${driverData.name || 'Your driver'} (${driverData.vehicle}) is on the way!`,
-              });
-            })
-            .catch(err => {
-              console.error('Error fetching driver details:', err);
-              toast({
-                title: "Driver found!",
-                description: "A driver has accepted your ride request.",
-              });
+          if (driverInfo) {
+            // Use driver info from broadcast payload
+            toast({
+              title: "Driver found!",
+              description: `${driverInfo.name || 'Your driver'} (${driverInfo.vehicle}) is on the way!`,
             });
-          
-          onRideAccepted(updatedRide.driverId);
+            
+            // Call the onRideAccepted callback
+            onRideAccepted(updatedRide.driverId);
+          } else {
+            // No driver info in broadcast, fetch from API
+            apiRequest('GET', `/api/drivers/${updatedRide.driverId}`)
+              .then(response => response.json())
+              .then(driverData => {
+                toast({
+                  title: "Driver found!",
+                  description: `${driverData.name || 'Your driver'} (${driverData.vehicle}) is on the way!`,
+                });
+                
+                // Call the onRideAccepted callback
+                onRideAccepted(updatedRide.driverId);
+              })
+              .catch(err => {
+                console.error('Error fetching driver details:', err);
+                toast({
+                  title: "Driver found!",
+                  description: "A driver has accepted your ride request.",
+                });
+                
+                // Still call onRideAccepted even if we couldn't fetch driver details
+                onRideAccepted(updatedRide.driverId);
+              });
+          }
         }
         
+        // Update ride details in state
         setRideDetails(updatedRide);
       });
     };
@@ -169,10 +225,23 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
                   <Car className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Finding your driver</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">Finding your driver</h3>
+                    {isPriorityRider && (
+                      <span className="px-2 py-0.5 text-xs bg-yellow-500 text-white rounded-full whitespace-nowrap">
+                        Priority Rider
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm text-gray-500 flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
                     <span>Elapsed: {formatTime(elapsedTime)}</span>
+                    {isPriorityRider && (
+                      <div className="ml-2 text-yellow-600 flex items-center">
+                        • <Star className="h-3 w-3 mx-1 text-yellow-500" fill="currentColor" /> 
+                        <span>Prioritized matching</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -210,6 +279,15 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
               <div>
                 <div className="text-xs text-gray-500">ESTIMATED FARE</div>
                 <div className="text-xl font-bold">₹{rideDetails?.fare?.toFixed(2) || '0.00'}</div>
+                {isPriorityRider && (
+                  <div className="text-xs bg-yellow-50 text-yellow-600 mt-1 p-2 rounded-md border border-yellow-200">
+                    <div className="flex items-center mb-1">
+                      <Star className="h-3 w-3 text-yellow-500 mr-1" fill="currentColor" />
+                      <span className="font-medium">Priority Rider Status</span>
+                    </div>
+                    <p>Your high rating ({userRating?.toFixed(1)}/5.0) means you're prioritized for driver matching! Keep it up!</p>
+                  </div>
+                )}
               </div>
               
               <Button 

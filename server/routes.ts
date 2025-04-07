@@ -74,6 +74,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     status: string;
     createdAt: Date;
     fare: number;
+    riderRating?: number;
+    riderName?: string;
+    totalRides?: number;
   }
   
   let pendingRides: PendingRide[] = [];
@@ -94,7 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const ride = await storage.createRide(rideData);
       
-      // Add to pending rides list instead of auto-assigning
+      // Add to pending rides list with rider information
+      const rider = await storage.getUser(ride.riderId);
       pendingRides.push({
         id: ride.id,
         riderId: ride.riderId,
@@ -103,6 +107,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending',
         createdAt: new Date(),
         fare: ride.fare || 12.50, // Fallback fare
+        riderRating: rider?.rating || 5, // Include rating for priority
+        riderName: rider?.name || "Unknown Rider",
+        totalRides: rider?.totalRides || 0
       });
       
       res.status(201).json(ride);
@@ -112,8 +119,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get pending rides for drivers
-  app.get("/api/driver/pending-rides", (req, res) => {
-    res.json(pendingRides);
+  // Get pending rides with rider ratings for priority-based matching
+  app.get("/api/driver/pending-rides", async (req, res) => {
+    try {
+      // Since we've already embedded rider information when creating the ride request,
+      // we can simply sort the existing pending rides by rider rating
+      
+      // Sort by rider rating (higher rated riders get priority)
+      const sortedRides = [...pendingRides].sort((a, b) => 
+        (b.riderRating || 5) - (a.riderRating || 5)
+      );
+      
+      res.json(sortedRides);
+    } catch (error) {
+      console.error("Error fetching pending rides:", error);
+      // If there's an error, fall back to the unsorted list
+      res.json(pendingRides);
+    }
   });
   
   // Driver accepts a ride
@@ -138,18 +160,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Ride not found in storage" });
       }
       
+      // Get the driver details (for the notification)
+      const driver = await storage.getDriver(driverId);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver not found" });
+      }
+      
+      // Assign driver to ride and update status
       await storage.assignDriverToRide(rideId, driverId);
-      await storage.updateRideStatus(rideId, "accepted");
+      const updatedRide = await storage.updateRideStatus(rideId, "accepted");
       
       // Remove from pending rides
       const acceptedRide = pendingRides.splice(pendingRideIndex, 1)[0];
+      
+      // Send real-time update through Supabase
+      try {
+        await supabase
+          .from('rides')
+          .update({ 
+            status: 'accepted',
+            driver_id: driverId 
+          })
+          .eq('id', rideId);
+          
+        // Broadcast via Supabase realtime
+        const channel = supabase.channel(`ride:${rideId}`);
+        await channel.subscribe();
+        
+        // Using send message to broadcast
+        channel.send({
+          type: 'broadcast',
+          event: 'ride_update',
+          payload: {
+            id: rideId,
+            status: 'accepted',
+            driverId: driverId,
+            driver: {
+              name: driver.name,
+              vehicle: driver.vehicle,
+              licensePlate: driver.licensePlate,
+              rating: driver.rating
+            }
+          }
+        });
+      } catch (supaError) {
+        console.error("Supabase realtime error:", supaError);
+        // Continue even if supabase fails - the REST API will still work
+      }
       
       res.json({ 
         message: "Ride accepted successfully", 
         ride: {
           ...acceptedRide,
           driverId,
-          status: 'in_progress',
+          status: 'accepted', // Changed to 'accepted' first, then driver changes to 'in_progress'
+          driver: {
+            name: driver.name,
+            vehicle: driver.vehicle,
+            licensePlate: driver.licensePlate,
+            rating: driver.rating
+          }
         }
       });
     } catch (error) {

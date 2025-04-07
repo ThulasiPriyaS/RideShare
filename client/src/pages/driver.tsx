@@ -87,27 +87,33 @@ const DriverPage = () => {
         };
       }
       
+      // Use the rider's name and rating if available (from priority matching)
+      const riderName = ride.riderName || 'Rider';
+      const riderRating = ride.riderRating || 4.5;
+      
       setDriverState(prev => ({
         ...prev,
         pendingRide: {
           id: ride.id,
           userId: ride.riderId,
-          userName: 'Rider', // In a real app, fetch user info
+          userName: riderName,
           pickup,
           destination,
           distance: '1.2 miles', // Calculate based on coordinates
           estimatedTime: '9 mins', // Calculate based on distance
           fare: ride.fare || 12.50,
           paymentMethod: 'Card',
-          rating: 4.9, // In a real app, fetch from user
-          totalRides: 24, // In a real app, fetch from user
+          rating: riderRating, // Use the rating from the server
+          totalRides: ride.totalRides || 10, // Use totalRides from server if available
+          isPriorityRider: riderRating >= 4.8, // Mark high-rated riders as priority
         }
       }));
       
       // Notify driver with a sound and toast
       toast({
-        title: "New ride request!",
-        description: `${pickup.name} → ${destination.name}`,
+        title: riderRating >= 4.8 ? "⭐ Priority ride request!" : "New ride request!",
+        description: `${pickup.name} → ${destination.name}${riderRating >= 4.8 ? ' (High-rated rider)' : ''}`,
+        variant: riderRating >= 4.8 ? "default" : undefined,
       });
     };
 
@@ -404,10 +410,17 @@ const DriverPage = () => {
               <UserCog className="h-6 w-6 text-[#276EF1]" />
             </div>
             <div>
-              <div className="font-semibold">{driverState.currentRide.userName}</div>
+              <div className="font-semibold flex items-center">
+                {driverState.currentRide.userName}
+                {driverState.currentRide.rating >= 4.8 && (
+                  <span className="ml-2 text-xs text-yellow-500 font-normal">Top Rated</span>
+                )}
+              </div>
               <div className="text-sm text-gray-500 flex items-center">
-                <Star className="h-3 w-3 text-yellow-500 mr-1" fill="currentColor" />
-                {driverState.currentRide.rating} • {driverState.currentRide.totalRides} rides
+                <Star className={`h-3 w-3 mr-1 ${driverState.currentRide.rating >= 4.8 ? 'text-yellow-500' : 'text-gray-400'}`} fill="currentColor" />
+                <span className={driverState.currentRide.rating >= 4.8 ? 'text-yellow-600 font-medium' : ''}>
+                  {driverState.currentRide.rating}
+                </span> • {driverState.currentRide.totalRides} rides
               </div>
             </div>
           </div>
@@ -466,7 +479,12 @@ const DriverPage = () => {
       {driverState.pendingRide && !driverState.currentRide && (
         <div className="fixed inset-x-0 bottom-0 bg-white shadow-lg p-4 space-y-4 rounded-t-xl">
           <div className="text-center">
-            <h3 className="text-lg font-bold">New Ride Request</h3>
+            <div className="flex items-center justify-center gap-2">
+              <h3 className="text-lg font-bold">New Ride Request</h3>
+              {driverState.pendingRide.isPriorityRider && (
+                <Badge className="bg-yellow-500 hover:bg-yellow-600 animate-pulse">⭐ Priority Rider</Badge>
+              )}
+            </div>
             <p className="text-sm text-gray-500">{driverState.pendingRide.distance} • {driverState.pendingRide.estimatedTime}</p>
           </div>
           
@@ -475,10 +493,17 @@ const DriverPage = () => {
               <UserCog className="h-6 w-6 text-[#276EF1]" />
             </div>
             <div>
-              <div className="font-semibold">{driverState.pendingRide.userName}</div>
+              <div className="font-semibold flex items-center">
+                {driverState.pendingRide.userName}
+                {driverState.pendingRide.isPriorityRider && (
+                  <span className="ml-2 text-xs text-yellow-500 font-normal">Top Rated</span>
+                )}
+              </div>
               <div className="text-sm text-gray-500 flex items-center">
-                <Star className="h-3 w-3 text-yellow-500 mr-1" fill="currentColor" />
-                {driverState.pendingRide.rating} • {driverState.pendingRide.totalRides} rides
+                <Star className={`h-3 w-3 mr-1 ${driverState.pendingRide.isPriorityRider ? 'text-yellow-500' : 'text-gray-400'}`} fill="currentColor" />
+                <span className={driverState.pendingRide.isPriorityRider ? 'text-yellow-600 font-medium' : ''}>
+                  {driverState.pendingRide.rating}
+                </span> • {driverState.pendingRide.totalRides} rides
               </div>
             </div>
           </div>
@@ -511,10 +536,11 @@ const DriverPage = () => {
               <XCircle className="mr-2 h-5 w-5" /> Decline
             </Button>
             <Button 
-              className="w-1/2 flex items-center justify-center" 
+              className={`w-1/2 flex items-center justify-center ${driverState.pendingRide.isPriorityRider ? 'bg-yellow-500 hover:bg-yellow-600' : ''}`}
               onClick={handleAcceptRide}
             >
-              <CheckCircle className="mr-2 h-5 w-5" /> Accept
+              <CheckCircle className="mr-2 h-5 w-5" /> 
+              {driverState.pendingRide.isPriorityRider ? 'Accept Priority' : 'Accept'}
             </Button>
           </div>
         </div>
