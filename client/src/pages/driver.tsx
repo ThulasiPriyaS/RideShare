@@ -6,6 +6,7 @@ import RealTimeMap from '@/components/map/RealTimeMap';
 import { Car, Clock, Navigation, MapPin, Zap, CheckCircle, XCircle, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import RideCompletion from '@/components/driver/RideCompletionWrapper';
 
 // Driver interface
 interface DriverState {
@@ -266,50 +267,34 @@ const DriverPage = () => {
   const handleCompleteRide = async () => {
     if (!driverState.currentRide) return;
     
+    setDriverState(prev => ({
+      ...prev,
+      currentRide: {
+        ...prev.currentRide,
+        showCompletionUI: true
+      }
+    }));
+  };
+  
+  // Handle when both rider and driver have confirmed the ride is complete
+  const handleRideFullyComplete = async () => {
+    if (!driverState.currentRide) return;
+    
     const ride = driverState.currentRide;
     const fare = ride.fare;
     
-    try {
-      // Mark the ride as complete
-      const response = await apiRequest('GET', `/api/rides/${ride.id}/complete`);
-      
-      if (response.ok) {
-        toast({
-          title: 'Ride completed!',
-          description: `You earned $${fare.toFixed(2)}.`,
-          variant: 'default',
-        });
-        
-        setDriverState(prev => ({
-          ...prev,
-          currentRide: null,
-          earnings: prev.earnings + fare,
-          totalRides: prev.totalRides + 1,
-        }));
-      } else {
-        const error = await response.json();
-        toast({
-          title: 'Failed to complete ride',
-          description: error.message || 'Please try again',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error("Error completing ride:", error);
-      toast({
-        title: 'Connection error',
-        description: 'Could not connect to the server',
-        variant: 'destructive',
-      });
-      
-      // Still update the UI to prevent getting stuck
-      setDriverState(prev => ({
-        ...prev,
-        currentRide: null,
-        earnings: prev.earnings + fare,
-        totalRides: prev.totalRides + 1,
-      }));
-    }
+    setDriverState(prev => ({
+      ...prev,
+      currentRide: null,
+      earnings: prev.earnings + fare,
+      totalRides: prev.totalRides + 1,
+    }));
+    
+    toast({
+      title: 'Ride completed!',
+      description: `You earned ₹${fare.toFixed(2)}.`,
+      variant: 'default',
+    });
   };
 
   // Verification screen
@@ -393,7 +378,7 @@ const DriverPage = () => {
         </div>
         <div className="text-center">
           <p className="text-sm text-gray-500">Earnings</p>
-          <p className="font-bold">${driverState.earnings.toFixed(2)}</p>
+          <p className="font-bold">₹{driverState.earnings.toFixed(2)}</p>
         </div>
         <div className="text-center">
           <p className="text-sm text-gray-500">Rides</p>
@@ -457,16 +442,23 @@ const DriverPage = () => {
             </div>
             <div className="flex items-center font-medium">
               <Zap className="h-4 w-4 text-[#276EF1] mr-1" />
-              ${driverState.currentRide.fare.toFixed(2)}
+              ₹{driverState.currentRide.fare.toFixed(2)}
             </div>
           </div>
           
-          <Button 
-            className="w-full" 
-            onClick={handleCompleteRide}
-          >
-            Complete Ride
-          </Button>
+          {driverState.currentRide.showCompletionUI ? (
+            <RideCompletion 
+              rideId={driverState.currentRide.id}
+              onComplete={handleRideFullyComplete}
+            />
+          ) : (
+            <Button 
+              className="w-full" 
+              onClick={handleCompleteRide}
+            >
+              Complete Ride
+            </Button>
+          )}
         </div>
       )}
 

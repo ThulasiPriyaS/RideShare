@@ -139,7 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.assignDriverToRide(rideId, driverId);
-      await storage.updateRideStatus(rideId, "in_progress");
+      await storage.updateRideStatus(rideId, "accepted");
       
       // Remove from pending rides
       const acceptedRide = pendingRides.splice(pendingRideIndex, 1)[0];
@@ -190,13 +190,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(activeRide);
   });
   
+  // Start a ride (from accepted to in_progress)
+  app.post("/api/rides/:id/start", async (req, res) => {
+    const rideId = parseInt(req.params.id);
+    
+    try {
+      const ride = await storage.getRide(rideId);
+      
+      if (!ride) {
+        return res.status(404).json({ message: "Ride not found" });
+      }
+      
+      if (ride.status !== "accepted") {
+        return res.status(400).json({ 
+          message: "Ride cannot be started", 
+          reason: `Current status is '${ride.status}', must be 'accepted'`
+        });
+      }
+      
+      await storage.updateRideStatus(rideId, "in_progress");
+      
+      res.json({ success: true, message: "Ride started successfully" });
+    } catch (error) {
+      console.error("Error starting ride:", error);
+      res.status(500).json({ message: "Failed to start ride" });
+    }
+  });
+  
+  // Rider confirms ride completion
+  app.post("/api/rides/:id/rider-complete", async (req, res) => {
+    const rideId = parseInt(req.params.id);
+    
+    try {
+      const ride = await storage.getRide(rideId);
+      
+      if (!ride) {
+        return res.status(404).json({ message: "Ride not found" });
+      }
+      
+      if (ride.status === "completed") {
+        return res.status(400).json({ message: "Ride already completed" });
+      }
+      
+      await storage.confirmRiderCompletedRide(rideId);
+      const bothCompleted = await storage.checkBothCompletedRide(rideId);
+      
+      res.json({ 
+        success: true, 
+        message: bothCompleted 
+          ? "Ride fully completed" 
+          : "Waiting for driver to confirm completion" 
+      });
+    } catch (error) {
+      console.error("Error completing ride:", error);
+      res.status(500).json({ message: "Failed to complete ride" });
+    }
+  });
+  
+  // Driver confirms ride completion
+  app.post("/api/rides/:id/driver-complete", async (req, res) => {
+    const rideId = parseInt(req.params.id);
+    
+    try {
+      const ride = await storage.getRide(rideId);
+      
+      if (!ride) {
+        return res.status(404).json({ message: "Ride not found" });
+      }
+      
+      if (ride.status === "completed") {
+        return res.status(400).json({ message: "Ride already completed" });
+      }
+      
+      await storage.confirmDriverCompletedRide(rideId);
+      const bothCompleted = await storage.checkBothCompletedRide(rideId);
+      
+      res.json({ 
+        success: true, 
+        message: bothCompleted 
+          ? "Ride fully completed" 
+          : "Waiting for rider to confirm completion" 
+      });
+    } catch (error) {
+      console.error("Error completing ride:", error);
+      res.status(500).json({ message: "Failed to complete ride" });
+    }
+  });
+  
+  // Check ride completion status
+  app.get("/api/rides/:id/complete-status", async (req, res) => {
+    const rideId = parseInt(req.params.id);
+    
+    try {
+      const ride = await storage.getRide(rideId);
+      
+      if (!ride) {
+        return res.status(404).json({ message: "Ride not found" });
+      }
+      
+      res.json({
+        rideId: ride.id,
+        status: ride.status,
+        riderCompleted: ride.riderCompletedRide || false,
+        driverCompleted: ride.driverCompletedRide || false,
+        bothCompleted: ride.riderCompletedRide && ride.driverCompletedRide
+      });
+    } catch (error) {
+      console.error("Error checking ride status:", error);
+      res.status(500).json({ message: "Failed to check ride status" });
+    }
+  });
+  
+  // Get completed ride details (for summary screen)
   app.get("/api/rides/:id/complete", async (req, res) => {
     const rideId = parseInt(req.params.id);
     
-    // First try to get an active ride and mark it complete
+    // First try to get an active ride and check if already complete
     const ride = await storage.getRide(rideId);
-    if (ride && ride.status !== "completed") {
-      await storage.updateRideStatus(rideId, "completed");
+    if (!ride) {
+      return res.status(404).json({ message: "Ride not found" });
     }
     
     const completeRide = await storage.getCompleteRide(rideId);

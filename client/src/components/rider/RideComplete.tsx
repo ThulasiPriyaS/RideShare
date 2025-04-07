@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Check, CreditCard, Banknote, Smartphone, Car, Bike, Users } from "lucide-react";
 import { CompleteRide, Achievement } from "@shared/schema";
 import RatingStars from "@/components/ui/rating-stars";
 import BadgeIcon from "@/components/ui/badge-icon";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import RideCompletion from "@/components/rider/RideCompletion";
 
 interface RideCompleteProps {
   rideId: number;
@@ -13,6 +14,12 @@ interface RideCompleteProps {
 
 const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
   const [rating, setRating] = useState(5);
+  const [showDualConfirmation, setShowDualConfirmation] = useState(true);
+  const [completionStatus, setCompletionStatus] = useState({
+    riderCompleted: false,
+    driverCompleted: false,
+    bothCompleted: false
+  });
   
   const { data: ride } = useQuery<CompleteRide>({ 
     queryKey: [`/api/rides/${rideId}/complete`]
@@ -22,6 +29,32 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
     queryKey: [`/api/rides/${rideId}/achievement`],
     enabled: !!ride
   });
+
+  // Check completion status when component mounts
+  useEffect(() => {
+    const checkCompletionStatus = async () => {
+      try {
+        const response = await apiRequest('GET', `/api/rides/${rideId}/complete-status`);
+        if (response.ok) {
+          const data = await response.json();
+          setCompletionStatus({
+            riderCompleted: data.riderCompleted,
+            driverCompleted: data.driverCompleted,
+            bothCompleted: data.bothCompleted
+          });
+          
+          // If both have confirmed, move to the rating screen
+          if (data.bothCompleted) {
+            setShowDualConfirmation(false);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch ride completion status:", error);
+      }
+    };
+    
+    checkCompletionStatus();
+  }, [rideId]);
 
   const submitRatingMutation = useMutation({
     mutationFn: async (data: { rating: number }) => {
@@ -41,6 +74,10 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
   const handleSkip = () => {
     onFinish();
   };
+  
+  const handleCompletionConfirmed = () => {
+    setShowDualConfirmation(false);
+  };
 
   if (!ride) {
     return (
@@ -50,6 +87,18 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
     );
   }
 
+  // Show dual confirmation component if needed
+  if (showDualConfirmation) {
+    return (
+      <RideCompletion 
+        rideId={rideId} 
+        onComplete={handleCompletionConfirmed}
+        isRider={true}
+      />
+    );
+  }
+
+  // Once confirmed, show rating and ride summary
   return (
     <div className="p-4">
       <div className="bg-white rounded-xl shadow-lg p-6 text-center">
@@ -70,7 +119,7 @@ const RideComplete: React.FC<RideCompleteProps> = ({ rideId, onFinish }) => {
             <div className="text-sm text-[#6E6E6E]">Points</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-[#276EF1]">${ride.fare.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#276EF1]">₹{ride.fare.toFixed(2)}</div>
             <div className="text-sm text-[#6E6E6E]">Fare</div>
           </div>
         </div>

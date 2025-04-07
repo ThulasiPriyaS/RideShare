@@ -36,6 +36,9 @@ export interface IStorage {
   getRidesForUser(userId: number, limit?: number): Promise<RideHistory[]>;
   getActiveRide(rideId: number): Promise<ActiveRide | undefined>;
   getCompleteRide(rideId: number): Promise<CompleteRide | undefined>;
+  confirmRiderCompletedRide(rideId: number): Promise<Ride>;
+  confirmDriverCompletedRide(rideId: number): Promise<Ride>;
+  checkBothCompletedRide(rideId: number): Promise<boolean>;
   
   // Achievement methods
   getAchievement(id: number): Promise<Achievement | undefined>;
@@ -729,6 +732,78 @@ export class MemStorage implements IStorage {
     if (!user) return 99;
     
     return user.leaderboardRank;
+  }
+  
+  // Ride completion methods
+  async confirmRiderCompletedRide(rideId: number): Promise<Ride> {
+    const ride = await this.getRide(rideId);
+    if (!ride) throw new Error("Ride not found");
+    
+    // Set rider completed flag
+    ride.riderCompletedRide = true;
+    
+    // Check if both have completed
+    if (ride.riderCompletedRide && ride.driverCompletedRide) {
+      // Fully complete the ride
+      ride.status = "completed";
+      ride.completedAt = new Date();
+      
+      // Award points to rider
+      const pointsEarned = 20 + Math.floor(Math.random() * 25); // Base points + random bonus
+      ride.pointsEarned = pointsEarned;
+      
+      await this.updateUserPoints(ride.riderId, pointsEarned);
+      await this.incrementUserRides(ride.riderId);
+      
+      // Increment driver ride count if applicable
+      if (ride.driverId) {
+        const driver = await this.getDriver(ride.driverId);
+        if (driver) {
+          await this.incrementUserRides(driver.userId);
+        }
+      }
+    }
+    
+    return ride;
+  }
+  
+  async confirmDriverCompletedRide(rideId: number): Promise<Ride> {
+    const ride = await this.getRide(rideId);
+    if (!ride) throw new Error("Ride not found");
+    
+    // Set driver completed flag
+    ride.driverCompletedRide = true;
+    
+    // Check if both have completed
+    if (ride.riderCompletedRide && ride.driverCompletedRide) {
+      // Fully complete the ride
+      ride.status = "completed";
+      ride.completedAt = new Date();
+      
+      // Award points to rider
+      const pointsEarned = 20 + Math.floor(Math.random() * 25); // Base points + random bonus
+      ride.pointsEarned = pointsEarned;
+      
+      await this.updateUserPoints(ride.riderId, pointsEarned);
+      await this.incrementUserRides(ride.riderId);
+      
+      // Increment driver ride count if applicable
+      if (ride.driverId) {
+        const driver = await this.getDriver(ride.driverId);
+        if (driver) {
+          await this.incrementUserRides(driver.userId);
+        }
+      }
+    }
+    
+    return ride;
+  }
+  
+  async checkBothCompletedRide(rideId: number): Promise<boolean> {
+    const ride = await this.getRide(rideId);
+    if (!ride) return false;
+    
+    return !!(ride.riderCompletedRide && ride.driverCompletedRide);
   }
 }
 

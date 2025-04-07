@@ -49,6 +49,8 @@ export const rides = pgTable("rides", {
   paymentMethod: text("payment_method"),
   splitFare: boolean("split_fare").default(false),
   splitWith: text("split_with").array(),
+  riderCompletedRide: boolean("rider_completed_ride").default(false),
+  driverCompletedRide: boolean("driver_completed_ride").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 });

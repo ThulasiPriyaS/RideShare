@@ -54,8 +54,10 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
       unsubscribe = await subscribeToRideUpdates(rideId, (updatedRide) => {
         console.log('Ride updated:', updatedRide);
         
+        console.log('Received ride update:', updatedRide);
+        
         // Check if ride was accepted by a driver
-        if (updatedRide.status === 'in_progress' && updatedRide.driverId) {
+        if ((updatedRide.status === 'in_progress' || updatedRide.status === 'accepted') && updatedRide.driverId) {
           toast({
             title: "Driver found!",
             description: "A driver has accepted your ride request.",
@@ -197,7 +199,7 @@ const RideWaiting: React.FC<RideWaitingProps> = ({
             <div className="flex justify-between items-center">
               <div>
                 <div className="text-xs text-gray-500">ESTIMATED FARE</div>
-                <div className="text-xl font-bold">${rideDetails?.fare?.toFixed(2) || '0.00'}</div>
+                <div className="text-xl font-bold">₹{rideDetails?.fare?.toFixed(2) || '0.00'}</div>
               </div>
               
               <Button 
